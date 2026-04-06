@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WaterBuddy — трекер воды</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Онбординг */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .onboarding-card {
+            background: white;
+            border-radius: 48px;
+            max-width: 500px;
+            width: 90%;
+            padding: 40px 32px;
+            text-align: center;
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .onboarding-icon { font-size: 72px; margin-bottom: 20px; }
+        .onboarding-title { font-size: 28px; font-weight: 700; color: #0b3b5f; margin-bottom: 16px; }
+        .onboarding-text { color: #5c6f87; font-size: 16px; margin-bottom: 32px; }
+        .onboarding-dots { display: flex; justify-content: center; gap: 12px; margin: 24px 0; }
+        .dot { width: 10px; height: 10px; border-radius: 10px; background: #cbd5e1; transition: all 0.2s; }
+        .dot.active { width: 28px; background: #2b9c5c; }
+        .onboarding-btn { background: #2b9c5c; color: white; border: none; padding: 14px 32px; border-radius: 60px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+        .skip-btn { background: transparent; color: #7f8c8d; margin-top: 16px; }
+
+        /* Навигация */
+        .nav-bar {
+            background: white;
+            border-radius: 60px;
+            padding: 12px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .logo { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; color: #0b3b5f; }
+        .logo span { font-size: 32px; }
+        .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav-btn { background: transparent; border: none; padding: 10px 20px; border-radius: 40px; font-size: 15px; font-weight: 500; cursor: pointer; color: #2c5a7a; }
+        .nav-btn.active { background: #0f67b3; color: white; }
+        .nav-btn:hover:not(.active) { background: #e2e8f0; }
+
+        /* Экраны */
+        .screen { display: none; animation: fadeIn 0.3s ease; }
+        .screen.active-screen { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+
+        .card { background: white; border-radius: 40px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-bottom: 24px; }
+        h1 { font-size: 28px; color: #0b3b5f; margin-bottom: 8px; }
+        h2 { font-size: 20px; color: #1e4a76; margin-bottom: 20px; }
+
+        .progress-container { background: #f1f5f9; border-radius: 60px; height: 24px; overflow: hidden; margin: 20px 0; }
+        .progress-fill { background: #2b9c5c; width: 0%; height: 100%; border-radius: 60px; transition: width 0.3s; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; color: white; font-size: 12px; font-weight: bold; }
+
+        .stats-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+        .stat-card { background: #f8fafc; border-radius: 24px; padding: 20px; flex: 1; min-width: 120px; text-align: center; }
+        .stat-value { font-size: 32px; font-weight: 800; color: #0f67b3; }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #1f3a5f; }
+        input, select, textarea { width: 100%; padding: 14px 18px; border: 2px solid #e2e8f0; border-radius: 24px; font-size: 16px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #2b9c5c; }
+        button { background: #2b9c5c; color: white; border: none; padding: 14px 28px; border-radius: 40px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+        button:hover { background: #23804b; }
+        .quick-buttons { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+        .quick-btn { background: #eef2ff; color: #1f3a5f; padding: 10px 20px; width: auto; flex: 1; }
+
+        .footer { text-align: center; margin-top: 32px; color: #5c6f87; font-size: 14px; }
+
+        @media (max-width: 640px) {
+            .card { padding: 20px; }
+            .nav-bar { flex-direction: column; }
+            .stats-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- ОНБОРДИНГ -->
+    <div id="onboardingOverlay" class="onboarding-overlay">
+        <div class="onboarding-card" id="onboardingStep1">
+            <div class="onboarding-icon">💧</div>
+            <div class="onboarding-title">Пей воду и будь здоров!</div>
+            <div class="onboarding-text">WaterBuddy поможет следить за водным балансом, вовремя напомнит выпить стакан воды и покажет прогресс.</div>
+            <div class="onboarding-dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+            <button class="onboarding-btn" id="nextStep1">Далее →</button>
+        </div>
+
+        <div class="onboarding-card" id="onboardingStep2" style="display: none;">
+            <div class="onboarding-icon">👤</div>
+            <div class="onboarding-title">Расскажите о себе</div>
+            <div class="onboarding-text">
+                <div class="form-group"><label>Ваше имя</label><input type="text" id="onbName" placeholder="Екатерина" required></div>
+                <div class="form-group"><label>Email</label><input type="email" id="onbEmail" placeholder="example@mail.ru" required></div>
+                <div class="form-group"><label>Вес (кг)</label><input type="number" id="onbWeight" placeholder="65" required></div>
+                <div class="form-group"><label>Пол</label><select id="onbGender"><option value="female">Женщина</option><option value="male">Мужчина</option></select></div>
+                <div style="padding: 12px; background: #eef2ff; border-radius: 24px;">📊 Ваша норма: <strong id="onbGoalPreview">2000</strong> мл/день</div>
+            </div>
+            <div class="onboarding-dots"><div class="dot"></div><div class="dot active"></div><div class="dot"></div></div>
+            <button class="onboarding-btn" id="nextStep2">Далее →</button>
+            <button class="onboarding-btn skip-btn" id="backStep1">← Назад</button>
+        </div>
+
+        <div class="onboarding-card" id="onboardingStep3" style="display: none;">
+            <div class="onboarding-icon">🔔</div>
+            <div class="onboarding-title">Разрешите уведомления</div>
+            <div class="onboarding-text">Будем присылать напоминания, чтобы вы не забывали пить воду.</div>
+            <div class="onboarding-dots"><div class="dot"></div><div class="dot"></div><div class="dot active"></div></div>
+            <button class="onboarding-btn" id="allowNotifications">Разрешить →</button>
+            <button class="onboarding-btn skip-btn" id="skipNotifications">Пропустить</button>
+            <button class="onboarding-btn skip-btn" id="backStep2">← Назад</button>
+        </div>
+    </div>
+
+    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
+    <div id="mainApp" style="display: none;">
+        <div class="nav-bar">
+            <div class="logo"><span>💧</span> WaterBuddy</div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-screen="dashboard">📊 Прогресс</button>
+                <button class="nav-btn" data-screen="add">➕ Добавить воду</button>
+                <button class="nav-btn" data-screen="stats">📈 Статистика</button>
+                <button class="nav-btn" data-screen="profile">⚙️ Профиль</button>
+            </div>
+        </div>
+
+        <div id="dashboard" class="screen active-screen">
+            <div class="card">
+                <h1>💧 Добрый день, <span id="userNameDisplay">Гость</span>!</h1>
+                <div class="stats-row">
+                    <div class="stat-card"><div class="stat-value" id="todayTotal">0</div><div>мл выпито</div></div>
+                    <div class="stat-card"><div class="stat-value" id="dailyGoal">2000</div><div>мл цель</div></div>
+                    <div class="stat-card"><div class="stat-value" id="remaining">2000</div><div>мл осталось</div></div>
+                </div>
+                <div class="progress-container"><div class="progress-fill" id="progressFill">0%</div></div>
+                <div style="background: #eef2ff; border-radius: 24px; padding: 16px;"><strong>💡 Совет:</strong> Пейте воду небольшими порциями каждые 30-40 минут.</div>
+            </div>
+        </div>
+
+        <div id="add" class="screen">
+            <div class="card">
+                <h2>➕ Добавить приём воды</h2>
+                <form id="waterForm">
+                    <div class="form-group">
+                        <label>💧 Объём воды (мл)</label>
+                        <div class="quick-buttons">
+                            <button type="button" class="quick-btn" data-quick="200">200 мл</button>
+                            <button type="button" class="quick-btn" data-quick="250">250 мл</button>
+                            <button type="button" class="quick-btn" data-quick="330">330 мл</button>
+                            <button type="button" class="quick-btn" data-quick="500">500 мл</button>
+                        </div>
+                        <input type="number" id="amountMl" placeholder="Введите объём" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип напитка</label>
+                        <select id="drinkType">
+                            <option value="water">Вода</option>
+                            <option value="tea">Чай</option>
+                            <option value="coffee">Кофе</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Время приёма</label>
+                        <input type="datetime-local" id="takenAt" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Заметка</label>
+                        <textarea id="note" rows="2" placeholder="Например: после тренировки"></textarea>
+                    </div>
+                    <button type="submit">💾 Сохранить запись</button>
+                </form>
+                <div id="formStatus" style="margin-top: 16px; text-align: center;"></div>
+            </div>
+        </div>
+
+        <div id="stats" class="screen">
+            <div class="card"><h2>📈 Ваша статистика</h2><div id="statsContent">Загружаем...</div></div>
+            <div class="card"><h2>🏆 Достижения</h2>
+                <div class="achievement-list" style="display:flex;flex-direction:column;gap:16px">
+                    <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">🥤 Первый стакан — добавить первую запись</div>
+                    <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">🔥 7 дней подряд — пить норму 7 дней</div>
+                    <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">💪 Морской конёк — выпить 2+ литра за день</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="profile" class="screen">
+            <div class="card">
+                <h2>⚙️ Настройки профиля</h2>
+                <div class="form-group"><label>Имя</label><input type="text" id="profileName"></div>
+                <div class="form-group"><label>Email</label><input type="email" id="profileEmail"></div>
+                <div class="form-group"><label>Вес (кг)</label><input type="number" id="profileWeight"></div>
+                <div class="form-group"><label>Пол</label><select id="profileGender"><option value="female">Женщина</option><option value="male">Мужчина</option></select></div>
+                <div class="form-group"><label>Цель на день (мл)</label><input type="number" id="goalSetting"></div>
+                <button id="saveSettings">💾 Сохранить настройки</button>
+            </div>
+        </div>
+        <div class="footer">WaterBuddy — твой помощник в поддержании водного баланса</div>
+    </div>
+</div>
+
+<script>
+    // === НАСТРОЙКА GOOGLE SHEETS ===
+    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwuPtD3akctQM3XGc9DogllaOB4IjLDGigs2McXOcP-TrLyWJ--7oRymOISYO--nYuZaQ/exec';
+
+    // === Функции для работы с профилем ===
+    function saveUserProfile(name, email, weight, gender) {
+        localStorage.setItem('userName', name);
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userWeight', weight);
+        localStorage.setItem('userGender', gender);
+        const goal = (gender === 'female' ? weight * 30 : weight * 35);
+        localStorage.setItem('dailyGoal', goal);
+        document.getElementById('userNameDisplay').innerText = name;
+        updateDashboard();
+    }
+
+    function loadUserProfileToForm() {
+        document.getElementById('profileName').value = localStorage.getItem('userName') || '';
+        document.getElementById('profileEmail').value = localStorage.getItem('userEmail') || '';
+        document.getElementById('profileWeight').value = localStorage.getItem('userWeight') || '';
+        document.getElementById('profileGender').value = localStorage.getItem('userGender') || 'female';
+        document.getElementById('goalSetting').value = localStorage.getItem('dailyGoal') || 2000;
+    }
+
+    // === Онбординг ===
+    function calculateGoal(weight, gender) {
+        return gender === 'female' ? weight * 30 : weight * 35;
+    }
+
+    function updateGoalPreview() {
+        const weight = parseInt(document.getElementById('onbWeight').value) || 65;
+        const gender = document.getElementById('onbGender').value;
+        document.getElementById('onbGoalPreview').innerText = calculateGoal(weight, gender);
+    }
+
+    document.getElementById('onbWeight')?.addEventListener('input', updateGoalPreview);
+    document.getElementById('onbGender')?.addEventListener('change', updateGoalPreview);
+    updateGoalPreview();
+
+    document.getElementById('nextStep1').onclick = () => {
+        document.getElementById('onboardingStep1').style.display = 'none';
+        document.getElementById('onboardingStep2').style.display = 'block';
+    };
+    document.getElementById('backStep1').onclick = () => {
+        document.getElementById('onboardingStep2').style.display = 'none';
+        document.getElementById('onboardingStep1').style.display = 'block';
+    };
+    document.getElementById('nextStep2').onclick = () => {
+        const name = document.getElementById('onbName').value;
+        const email = document.getElementById('onbEmail').value;
+        const weight = parseInt(document.getElementById('onbWeight').value) || 65;
+        const gender = document.getElementById('onbGender').value;
+        if (!name || !email) { alert('Пожалуйста, заполните имя и email'); return; }
+        saveUserProfile(name, email, weight, gender);
+        document.getElementById('onboardingStep2').style.display = 'none';
+        document.getElementById('onboardingStep3').style.display = 'block';
+    };
+    document.getElementById('backStep2').onclick = () => {
+        document.getElementById('onboardingStep3').style.display = 'none';
+        document.getElementById('onboardingStep2').style.display = 'block';
+    };
+    function finishOnboarding() {
+        document.getElementById('onboardingOverlay').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        loadUserProfileToForm();
+        updateDashboard();
+    }
+    document.getElementById('allowNotifications').onclick = () => {
+        if (Notification.permission === 'default') Notification.requestPermission();
+        finishOnboarding();
+    };
+    document.getElementById('skipNotifications').onclick = finishOnboarding;
+
+    // === ОТПРАВКА В GOOGLE SHEETS ===
+    async function sendToGoogleSheets(record) {
+        if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/ВАШ_ID_GOOGLE_APPS_SCRIPT/exec') {
+            console.warn('Google Sheets не настроен. Добавьте ваш URL в переменную GOOGLE_SHEETS_URL');
+            return false;
+        }
+        try {
+            const response = await fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(record)
+            });
+            console.log('✅ Данные отправлены в Google Sheets');
+            return true;
+        } catch (error) {
+            console.error('❌ Ошибка отправки в Google Sheets:', error);
+            return false;
+        }
+    }
+
+    // === Основное приложение ===
+    function updateDashboard() {
+        const today = new Date().toISOString().slice(0,10);
+        const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
+        const todayTotal = records.filter(r => r.takenAt && r.takenAt.startsWith(today)).reduce((s, r) => s + (r.amountMl || 0), 0);
+        const goal = parseInt(localStorage.getItem('dailyGoal')) || 2000;
+        const percent = Math.min(100, Math.floor((todayTotal / goal) * 100));
+        document.getElementById('todayTotal').innerText = todayTotal;
+        document.getElementById('dailyGoal').innerText = goal;
+        document.getElementById('remaining').innerText = Math.max(0, goal - todayTotal);
+        document.getElementById('progressFill').style.width = percent + '%';
+        document.getElementById('progressFill').innerText = percent + '%';
+        document.getElementById('userNameDisplay').innerText = localStorage.getItem('userName') || 'Гость';
+    }
+
+    // Форма добавления воды
+    document.getElementById('waterForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const amountMl = parseInt(document.getElementById('amountMl').value);
+        if (!amountMl || amountMl <= 0) {
+            document.getElementById('formStatus').innerHTML = '❌ Укажите корректный объём';
+            return;
+        }
+
+        const now = new Date();
+        const record = {
+            timestamp: now.toISOString(),
+            userName: localStorage.getItem('userName') || 'Гость',
+            email: localStorage.getItem('userEmail') || '',
+            weight: localStorage.getItem('userWeight') || '',
+            gender: localStorage.getItem('userGender') || '',
+            amountMl: amountMl,
+            drinkType: document.getElementById('drinkType').value,
+            takenAt: document.getElementById('takenAt').value,
+            note: document.getElementById('note').value
+        };
+
+        // Сохраняем в localStorage
+        const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
+        records.push(record);
+        localStorage.setItem('waterRecords', JSON.stringify(records));
+
+        // Отправляем в Google Sheets
+        await sendToGoogleSheets(record);
+
+        document.getElementById('formStatus').innerHTML = '✅ Запись сохранена! (отправлено в Google Sheets)';
+        setTimeout(() => document.getElementById('formStatus').innerHTML = '', 3000);
+        document.getElementById('waterForm').reset();
+        document.getElementById('takenAt').value = now.toISOString().slice(0,16);
+        updateDashboard();
+        showScreen('dashboard');
+    });
+
+    function loadStats() {
+        const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
+        const byDate = {};
+        records.forEach(r => {
+            const date = r.takenAt ? r.takenAt.slice(0,10) : 'unknown';
+            byDate[date] = (byDate[date] || 0) + (r.amountMl || 0);
+        });
+        let html = '<ul style="margin-left:20px;">';
+        for (const [date, total] of Object.entries(byDate)) {
+            html += `<li>📅 ${date}: <strong>${total} мл</strong></li>`;
+        }
+        html += '</ul>';
+        document.getElementById('statsContent').innerHTML = html || '<p>Пока нет записей. Добавьте первую запись о воде!</p>';
+    }
+
+    document.getElementById('saveSettings').addEventListener('click', () => {
+        const name = document.getElementById('profileName').value;
+        const email = document.getElementById('profileEmail').value;
+        const weight = parseInt(document.getElementById('profileWeight').value) || 65;
+        const gender = document.getElementById('profileGender').value;
+        const newGoal = parseInt(document.getElementById('goalSetting').value);
+        if (name && email) saveUserProfile(name, email, weight, gender);
+        if (newGoal > 0) localStorage.setItem('dailyGoal', newGoal);
+        updateDashboard();
+        alert('Настройки сохранены');
+    });
+
+    // Навигация
+    const screens = document.querySelectorAll('.screen');
+    const navBtns = document.querySelectorAll('.nav-btn');
+    function showScreen(screenId) {
+        screens.forEach(s => s.classList.remove('active-screen'));
+        document.getElementById(screenId).classList.add('active-screen');
+        navBtns.forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.nav-btn[data-screen="${screenId}"]`).classList.add('active');
+        if (screenId === 'dashboard') updateDashboard();
+        if (screenId === 'stats') loadStats();
+        if (screenId === 'profile') loadUserProfileToForm();
+    }
+    navBtns.forEach(btn => btn.addEventListener('click', () => showScreen(btn.getAttribute('data-screen'))));
+
+    // Быстрые кнопки объёмов
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ml = btn.getAttribute('data-quick');
+            if (ml) document.getElementById('amountMl').value = ml;
+        });
+    });
+
+    // Устанавливаем текущее время в поле takenAt
+    document.getElementById('takenAt').value = new Date().toISOString().slice(0,16);
+
+    // Если пользователь уже проходил онбординг — показываем приложение
+    if (localStorage.getItem('userName')) {
+        document.getElementById('onboardingOverlay').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        loadUserProfileToForm();
+        updateDashboard();
+    }
+</script>
+</body>
+</html>
