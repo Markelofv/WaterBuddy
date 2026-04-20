@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaterBuddy — трекер воды</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>WaterBuddy — трекер воды + CRM (API интеграция)</title>
     <style>
         * {
             margin: 0;
@@ -82,7 +82,6 @@
         .nav-btn.active { background: #0f67b3; color: white; }
         .nav-btn:hover:not(.active) { background: #e2e8f0; }
 
-        /* Экраны */
         .screen { display: none; animation: fadeIn 0.3s ease; }
         .screen.active-screen { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
@@ -219,7 +218,7 @@
         <div id="stats" class="screen">
             <div class="card"><h2>📈 Ваша статистика</h2><div id="statsContent">Загружаем...</div></div>
             <div class="card"><h2>🏆 Достижения</h2>
-                <div class="achievement-list" style="display:flex;flex-direction:column;gap:16px">
+                <div style="display:flex;flex-direction:column;gap:16px">
                     <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">🥤 Первый стакан — добавить первую запись</div>
                     <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">🔥 7 дней подряд — пить норму 7 дней</div>
                     <div style="background:#fefce8;border-radius:20px;padding:16px;border-left:8px solid #f5b042;">💪 Морской конёк — выпить 2+ литра за день</div>
@@ -243,10 +242,119 @@
 </div>
 
 <script>
-    // === НАСТРОЙКА GOOGLE SHEETS ===
-    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwuPtD3akctQM3XGc9DogllaOB4IjLDGigs2McXOcP-TrLyWJ--7oRymOISYO--nYuZaQ/exec';
+    const MEGAPLAN_CONFIG = {
+        baseUrl: 'https://m89341523.megaplan.ru' ,
+        accessId: '8e9ae9e9-c83f-4410-9190-db6091730a6b' ,
+        secretKey: 'Zjc1ZDk3ZGY2MjhjNzgyMmZmOTA0NmI1OGQ2NTIyODE4NDM5M2E0NWMzY2ZiOGYyYTJjZmJkOWE5YTc0OWNiOA'
+    };
+    
+    let megaplanAccessToken = null;
 
-    // === Функции для работы с профилем ===
+    // ============================================================
+    // ФУНКЦИИ API MEGAPLAN (через AccessId + SecretKey)
+    // ============================================================
+    
+    async function getMegaplanToken() {
+        try {
+            // Используем grant_type=client_credentials с AccessId и SecretKey
+            const response = await fetch(`${MEGAPLAN_CONFIG.baseUrl}/api/v3/auth/access_token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    grant_type: 'client_credentials',
+                    client_id: MEGAPLAN_CONFIG.accessId,
+                    client_secret: MEGAPLAN_CONFIG.secretKey
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Ошибка авторизации: ${response.status} - ${errorText}`);
+                return null;
+            }
+            
+            const data = await response.json();
+            megaplanAccessToken = data.access_token;
+            console.log('✅ Токен получен через client_credentials');
+            return megaplanAccessToken;
+        } catch (error) {
+            console.error('❌ Ошибка получения токена:', error);
+            return null;
+        }
+    }
+    
+    async function createMegaplanContact(contactData) {
+        try {
+            if (!megaplanAccessToken) {
+                await getMegaplanToken();
+            }
+            
+            if (!megaplanAccessToken) {
+                console.warn('⚠️ Нет токена, данные не отправлены в CRM');
+                return null;
+            }
+            
+            // Преобразуем пол
+            let genderText = contactData.gender === 'female' ? 'Женщина' : 'Мужчина';
+            
+            // Преобразуем тип напитка
+            let drinkTypeText = 'Вода';
+            switch(contactData.drinkType) {
+                case 'water': drinkTypeText = 'Вода'; break;
+                case 'tea': drinkTypeText = 'Чай'; break;
+                case 'coffee': drinkTypeText = 'Кофе'; break;
+                default: drinkTypeText = 'Другое';
+            }
+            
+            // Формируем данные для создания контакта (сущность "person")
+            const payload = {
+                "Person": {
+                    "name": contactData.name,
+                    "email": contactData.email,
+                    "customFields": {
+                        "Вес (кг)": contactData.weight,
+                        "Пол": genderText,
+                        "Дневная цель (мл)": contactData.dailyGoal
+                    }
+                }
+            };
+            
+            // Добавляем информацию о записи воды, если она есть
+            if (contactData.amountMl && contactData.amountMl > 0) {
+                payload.Person.customFields["Объём воды (мл)"] = contactData.amountMl;
+                payload.Person.customFields["Тип напитка"] = drinkTypeText;
+                payload.Person.customFields["Время приёма"] = contactData.takenAt;
+                payload.Person.customFields["Заметка"] = contactData.note || 'Приём воды';
+            }
+            
+            const response = await fetch(`${MEGAPLAN_CONFIG.baseUrl}/api/v3/persons`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${megaplanAccessToken}`
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.warn(`⚠️ Ошибка API: ${response.status} - ${errorText}`);
+                return null;
+            }
+            
+            const result = await response.json();
+            console.log('✅ Контакт создан в Мегаплан:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ Ошибка создания контакта:', error);
+            return null;
+        }
+    }
+
+    // ============================================================
+    // ОСНОВНАЯ ЛОГИКА ПРИЛОЖЕНИЯ
+    // ============================================================
+    
     function saveUserProfile(name, email, weight, gender) {
         localStorage.setItem('userName', name);
         localStorage.setItem('userEmail', email);
@@ -257,7 +365,7 @@
         document.getElementById('userNameDisplay').innerText = name;
         updateDashboard();
     }
-
+    
     function loadUserProfileToForm() {
         document.getElementById('profileName').value = localStorage.getItem('userName') || '';
         document.getElementById('profileEmail').value = localStorage.getItem('userEmail') || '';
@@ -265,22 +373,22 @@
         document.getElementById('profileGender').value = localStorage.getItem('userGender') || 'female';
         document.getElementById('goalSetting').value = localStorage.getItem('dailyGoal') || 2000;
     }
-
-    // === Онбординг ===
+    
     function calculateGoal(weight, gender) {
         return gender === 'female' ? weight * 30 : weight * 35;
     }
-
+    
     function updateGoalPreview() {
         const weight = parseInt(document.getElementById('onbWeight').value) || 65;
         const gender = document.getElementById('onbGender').value;
         document.getElementById('onbGoalPreview').innerText = calculateGoal(weight, gender);
     }
-
+    
+    // Онбординг
     document.getElementById('onbWeight')?.addEventListener('input', updateGoalPreview);
     document.getElementById('onbGender')?.addEventListener('change', updateGoalPreview);
     updateGoalPreview();
-
+    
     document.getElementById('nextStep1').onclick = () => {
         document.getElementById('onboardingStep1').style.display = 'none';
         document.getElementById('onboardingStep2').style.display = 'block';
@@ -289,13 +397,28 @@
         document.getElementById('onboardingStep2').style.display = 'none';
         document.getElementById('onboardingStep1').style.display = 'block';
     };
-    document.getElementById('nextStep2').onclick = () => {
+    document.getElementById('nextStep2').onclick = async () => {
         const name = document.getElementById('onbName').value;
         const email = document.getElementById('onbEmail').value;
         const weight = parseInt(document.getElementById('onbWeight').value) || 65;
         const gender = document.getElementById('onbGender').value;
         if (!name || !email) { alert('Пожалуйста, заполните имя и email'); return; }
         saveUserProfile(name, email, weight, gender);
+        const dailyGoal = calculateGoal(weight, gender);
+        
+        // Отправляем в CRM при регистрации
+        await createMegaplanContact({
+            name: name,
+            email: email,
+            weight: weight,
+            gender: gender,
+            amountMl: 0,
+            drinkType: 'water',
+            takenAt: new Date().toISOString(),
+            note: 'Новый пользователь зарегистрировался в WaterBuddy',
+            dailyGoal: dailyGoal
+        });
+        
         document.getElementById('onboardingStep2').style.display = 'none';
         document.getElementById('onboardingStep3').style.display = 'block';
     };
@@ -314,29 +437,8 @@
         finishOnboarding();
     };
     document.getElementById('skipNotifications').onclick = finishOnboarding;
-
-    // === ОТПРАВКА В GOOGLE SHEETS ===
-    async function sendToGoogleSheets(record) {
-        if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/ВАШ_ID_GOOGLE_APPS_SCRIPT/exec') {
-            console.warn('Google Sheets не настроен. Добавьте ваш URL в переменную GOOGLE_SHEETS_URL');
-            return false;
-        }
-        try {
-            const response = await fetch(GOOGLE_SHEETS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams(record)
-            });
-            console.log('✅ Данные отправлены в Google Sheets');
-            return true;
-        } catch (error) {
-            console.error('❌ Ошибка отправки в Google Sheets:', error);
-            return false;
-        }
-    }
-
-    // === Основное приложение ===
+    
+    // Дашборд
     function updateDashboard() {
         const today = new Date().toISOString().slice(0,10);
         const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
@@ -350,7 +452,7 @@
         document.getElementById('progressFill').innerText = percent + '%';
         document.getElementById('userNameDisplay').innerText = localStorage.getItem('userName') || 'Гость';
     }
-
+    
     // Форма добавления воды
     document.getElementById('waterForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -359,36 +461,52 @@
             document.getElementById('formStatus').innerHTML = '❌ Укажите корректный объём';
             return;
         }
-
-        const now = new Date();
+        
         const record = {
-            timestamp: now.toISOString(),
-            userName: localStorage.getItem('userName') || 'Гость',
-            email: localStorage.getItem('userEmail') || '',
-            weight: localStorage.getItem('userWeight') || '',
-            gender: localStorage.getItem('userGender') || '',
+            timestamp: new Date().toISOString(),
             amountMl: amountMl,
             drinkType: document.getElementById('drinkType').value,
             takenAt: document.getElementById('takenAt').value,
-            note: document.getElementById('note').value
+            note: document.getElementById('note').value || ''
         };
-
+        
         // Сохраняем в localStorage
         const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
         records.push(record);
         localStorage.setItem('waterRecords', JSON.stringify(records));
-
-        // Отправляем в Google Sheets
-        await sendToGoogleSheets(record);
-
-        document.getElementById('formStatus').innerHTML = '✅ Запись сохранена! (отправлено в Google Sheets)';
+        
+        // Отправляем в CRM
+        const userName = localStorage.getItem('userName');
+        const userEmail = localStorage.getItem('userEmail');
+        const userWeight = localStorage.getItem('userWeight');
+        const userGender = localStorage.getItem('userGender');
+        const dailyGoal = localStorage.getItem('dailyGoal');
+        
+        if (userName && userEmail) {
+            await createMegaplanContact({
+                name: userName,
+                email: userEmail,
+                weight: userWeight || 65,
+                gender: userGender || 'female',
+                amountMl: amountMl,
+                drinkType: document.getElementById('drinkType').value,
+                takenAt: document.getElementById('takenAt').value,
+                note: record.note || 'Приём воды',
+                dailyGoal: dailyGoal || 2000
+            });
+            document.getElementById('formStatus').innerHTML = '✅ Запись сохранена! (отправлено в CRM)';
+        } else {
+            document.getElementById('formStatus').innerHTML = '✅ Запись сохранена локально!';
+        }
+        
         setTimeout(() => document.getElementById('formStatus').innerHTML = '', 3000);
         document.getElementById('waterForm').reset();
-        document.getElementById('takenAt').value = now.toISOString().slice(0,16);
+        document.getElementById('takenAt').value = new Date().toISOString().slice(0,16);
         updateDashboard();
         showScreen('dashboard');
     });
-
+    
+    // Статистика
     function loadStats() {
         const records = JSON.parse(localStorage.getItem('waterRecords') || '[]');
         const byDate = {};
@@ -401,9 +519,10 @@
             html += `<li>📅 ${date}: <strong>${total} мл</strong></li>`;
         }
         html += '</ul>';
-        document.getElementById('statsContent').innerHTML = html || '<p>Пока нет записей. Добавьте первую запись о воде!</p>';
+        document.getElementById('statsContent').innerHTML = html || '<p>Пока нет записей</p>';
     }
-
+    
+    // Настройки
     document.getElementById('saveSettings').addEventListener('click', () => {
         const name = document.getElementById('profileName').value;
         const email = document.getElementById('profileEmail').value;
@@ -415,7 +534,7 @@
         updateDashboard();
         alert('Настройки сохранены');
     });
-
+    
     // Навигация
     const screens = document.querySelectorAll('.screen');
     const navBtns = document.querySelectorAll('.nav-btn');
@@ -429,19 +548,19 @@
         if (screenId === 'profile') loadUserProfileToForm();
     }
     navBtns.forEach(btn => btn.addEventListener('click', () => showScreen(btn.getAttribute('data-screen'))));
-
-    // Быстрые кнопки объёмов
+    
+    // Быстрые кнопки
     document.querySelectorAll('.quick-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const ml = btn.getAttribute('data-quick');
             if (ml) document.getElementById('amountMl').value = ml;
         });
     });
-
-    // Устанавливаем текущее время в поле takenAt
+    
+    // Установка текущего времени
     document.getElementById('takenAt').value = new Date().toISOString().slice(0,16);
-
-    // Если пользователь уже проходил онбординг — показываем приложение
+    
+    // Если пользователь уже проходил онбординг
     if (localStorage.getItem('userName')) {
         document.getElementById('onboardingOverlay').style.display = 'none';
         document.getElementById('mainApp').style.display = 'block';
