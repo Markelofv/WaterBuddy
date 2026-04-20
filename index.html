@@ -2,17 +2,57 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaterBuddy — трекер воды</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>WaterBuddy — трекер воды + CRM (Альбато)</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
-        body { background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%); min-height: 100vh; padding: 20px; }
-        .app-container { max-width: 1200px; margin: 0 auto; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
         /* Онбординг */
-        .onboarding-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .onboarding-card { background: white; border-radius: 48px; max-width: 500px; width: 90%; padding: 40px 32px; text-align: center; animation: slideUp 0.4s ease; }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .onboarding-card {
+            background: white;
+            border-radius: 48px;
+            max-width: 500px;
+            width: 90%;
+            padding: 40px 32px;
+            text-align: center;
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         .onboarding-icon { font-size: 72px; margin-bottom: 20px; }
         .onboarding-title { font-size: 28px; font-weight: 700; color: #0b3b5f; margin-bottom: 16px; }
         .onboarding-text { color: #5c6f87; font-size: 16px; margin-bottom: 32px; }
@@ -21,31 +61,42 @@
         .dot.active { width: 28px; background: #2b9c5c; }
         .onboarding-btn { background: #2b9c5c; color: white; border: none; padding: 14px 32px; border-radius: 60px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
         .skip-btn { background: transparent; color: #7f8c8d; margin-top: 16px; }
-        
+
         /* Навигация */
-        .nav-bar { background: white; border-radius: 60px; padding: 12px 24px; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .nav-bar {
+            background: white;
+            border-radius: 60px;
+            padding: 12px 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
         .logo { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; color: #0b3b5f; }
         .logo span { font-size: 32px; }
         .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
         .nav-btn { background: transparent; border: none; padding: 10px 20px; border-radius: 40px; font-size: 15px; font-weight: 500; cursor: pointer; color: #2c5a7a; }
         .nav-btn.active { background: #0f67b3; color: white; }
         .nav-btn:hover:not(.active) { background: #e2e8f0; }
-        
+
         .screen { display: none; animation: fadeIn 0.3s ease; }
         .screen.active-screen { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
-        
+
         .card { background: white; border-radius: 40px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-bottom: 24px; }
         h1 { font-size: 28px; color: #0b3b5f; margin-bottom: 8px; }
         h2 { font-size: 20px; color: #1e4a76; margin-bottom: 20px; }
-        
+
         .progress-container { background: #f1f5f9; border-radius: 60px; height: 24px; overflow: hidden; margin: 20px 0; }
         .progress-fill { background: #2b9c5c; width: 0%; height: 100%; border-radius: 60px; transition: width 0.3s; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; color: white; font-size: 12px; font-weight: bold; }
-        
+
         .stats-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
         .stat-card { background: #f8fafc; border-radius: 24px; padding: 20px; flex: 1; min-width: 120px; text-align: center; }
         .stat-value { font-size: 32px; font-weight: 800; color: #0f67b3; }
-        
+
         .form-group { margin-bottom: 20px; }
         label { display: block; font-weight: 600; margin-bottom: 8px; color: #1f3a5f; }
         input, select, textarea { width: 100%; padding: 14px 18px; border: 2px solid #e2e8f0; border-radius: 24px; font-size: 16px; }
@@ -54,9 +105,9 @@
         button:hover { background: #23804b; }
         .quick-buttons { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
         .quick-btn { background: #eef2ff; color: #1f3a5f; padding: 10px 20px; width: auto; flex: 1; }
-        
+
         .footer { text-align: center; margin-top: 32px; color: #5c6f87; font-size: 14px; }
-        
+
         @media (max-width: 640px) {
             .card { padding: 20px; }
             .nav-bar { flex-direction: column; }
@@ -191,106 +242,40 @@
 </div>
 
 <script>
-    const MEGAPLAN_CONFIG = {
-        baseUrl: 'https://m89341523.megaplan.ru',
-        accessId: '8e9ae9e9-c83f-4410-9190-db6091730a6b',
-        secretKey: 'Zjc1ZDk3ZGY2MjhjNzgyMmZmOTA0NmI1OGQ2NTIyODE4NDM5M2E0NWMzY2ZiOGYyYTJjZmJkOWE5YTc0OWNiOA'
-    };
-    
-    let megaplanAccessToken = null;
 
-    
-    async function getMegaplanToken() {
+    const ALBATO_WEBHOOK_URL = 'https://h.albato.ru/wh/38/1lfeu5j/_oczsehcCDjOpmnlI_dphnpmuY5CwVons-OlwBbBs_g/'; 
+
+    // ============================================================
+    // ФУНКЦИЯ ОТПРАВКИ В АЛЬБАТО
+    // ============================================================
+    async function sendToAlbato(contactData) {
         try {
-            // Эндпоинт для авторизации приложения
-            const response = await fetch(`${MEGAPLAN_CONFIG.baseUrl}/api/rest/auth/access`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    grant_type: 'client_credentials',
-                    client_id: MEGAPLAN_CONFIG.accessId,
-                    client_secret: MEGAPLAN_CONFIG.secretKey
-                })
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`Ошибка авторизации: ${response.status} - ${errorText}`);
-                return null;
-            }
-            
-            const data = await response.json();
-            megaplanAccessToken = data.access_token;
-            console.log('✅ Токен получен');
-            return megaplanAccessToken;
-        } catch (error) {
-            console.error('❌ Ошибка получения токена:', error);
-            return null;
-        }
-    }
-    
-    async function createMegaplanContact(contactData) {
-        try {
-            if (!megaplanAccessToken) {
-                await getMegaplanToken();
-            }
-            
-            if (!megaplanAccessToken) {
-                console.warn('⚠️ Нет токена, данные не отправлены в CRM');
-                return null;
-            }
-            
-            let genderText = contactData.gender === 'female' ? 'Женщина' : 'Мужчина';
-            let drinkTypeText = 'Вода';
-            switch(contactData.drinkType) {
-                case 'water': drinkTypeText = 'Вода'; break;
-                case 'tea': drinkTypeText = 'Чай'; break;
-                case 'coffee': drinkTypeText = 'Кофе'; break;
-                default: drinkTypeText = 'Другое';
-            }
-            
             const payload = {
-                "Person": {
-                    "name": contactData.name,
-                    "email": contactData.email,
-                    "customFields": {
-                        "Вес (кг)": contactData.weight,
-                        "Пол": genderText,
-                        "Дневная цель (мл)": contactData.dailyGoal
-                    }
-                }
+                name: contactData.name,
+                email: contactData.email,
+                weight: contactData.weight,
+                gender: contactData.gender === 'female' ? 'Женщина' : 'Мужчина',
+                amount_ml: contactData.amountMl,
+                drink_type: contactData.drinkType,
+                taken_at: contactData.takenAt,
+                note: contactData.note,
+                daily_goal: contactData.dailyGoal,
+                timestamp: new Date().toISOString()
             };
             
-            if (contactData.amountMl && contactData.amountMl > 0) {
-                payload.Person.customFields["Объём воды (мл)"] = contactData.amountMl;
-                payload.Person.customFields["Тип напитка"] = drinkTypeText;
-                payload.Person.customFields["Время приёма"] = contactData.takenAt;
-                payload.Person.customFields["Заметка"] = contactData.note || 'Приём воды';
-            }
+            console.log('📤 Отправляем в Альбато:', payload);
             
-            const response = await fetch(`${MEGAPLAN_CONFIG.baseUrl}/api/rest/persons`, {
+            const response = await fetch(ALBATO_WEBHOOK_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${megaplanAccessToken}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.warn(`⚠️ Ошибка API: ${response.status} - ${errorText}`);
-                return null;
-            }
-            
-            const result = await response.json();
-            console.log('✅ Контакт создан в Мегаплан:', result);
-            return result;
+            console.log('✅ Данные отправлены в Альбато, статус:', response.status);
+            return true;
         } catch (error) {
-            console.error('❌ Ошибка создания контакта:', error);
-            return null;
+            console.error('❌ Ошибка отправки в Альбато:', error);
+            return false;
         }
     }
 
@@ -348,7 +333,8 @@
         saveUserProfile(name, email, weight, gender);
         const dailyGoal = calculateGoal(weight, gender);
         
-        await createMegaplanContact({
+        // Отправляем в Альбато при регистрации
+        await sendToAlbato({
             name: name,
             email: email,
             weight: weight,
@@ -420,7 +406,7 @@
         const dailyGoal = localStorage.getItem('dailyGoal');
         
         if (userName && userEmail) {
-            await createMegaplanContact({
+            await sendToAlbato({
                 name: userName,
                 email: userEmail,
                 weight: userWeight || 65,
